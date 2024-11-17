@@ -11,7 +11,7 @@
 #define WIFI_PASSWORD ""
 
 //Credenciales para comunicacion con google sheets
-#define PROJECT_ID "proyecto-de-monitoreo-439900"
+#define PROJECT_ID ""
 #define CLIENT_EMAIL ""
 const char PRIVATE_KEY[] PROGMEM = "";
 const char spreadsheetId[] = "";
@@ -137,13 +137,31 @@ void loop() {
     valueRange.set("values/[1]/[1]", soilMoisturePercentage);
     valueRange.set("values/[1]/[2]", batteryPercentage);
 
-    // Agregar las mediciones realizadas por los sensores en su respectiva celda
-    bool success = GSheet.values.append(&response, spreadsheetId, "Humedad-Planta-1!A2", &valueRange);
-    if (success) {
-      response.toString(Serial, true);
-      valueRange.clear();
-    } else {
-      Serial.println(GSheet.errorReason());
+    const int maxRetries = 3;  // Numero maximo de intentos
+    int retryCount = 0;
+    bool success = false;
+    // Comprueba la conexión con Google Sheets
+    do {
+      success = GSheet.values.append(&response, spreadsheetId, "Humedad-Planta-1!A2", &valueRange);
+
+      if (success) {
+        response.toString(Serial, true);
+        valueRange.clear();
+      } else {
+        Serial.print("Failed to send data. Attempt ");
+        Serial.print(retryCount + 1);
+        Serial.print(" of ");
+        Serial.println(maxRetries);
+        Serial.println(GSheet.errorReason());
+
+        delay(2000); // 2 seconds
+      }
+
+      retryCount++;
+    } while (!success && retryCount < maxRetries);
+
+    if (!success) {
+      Serial.println("Data transmission failed after maximum retries.");
     }
 
     // Impresión de los valores en el monitor serial
